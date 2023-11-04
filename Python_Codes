@@ -1,0 +1,17 @@
+import pandas as pd
+from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+# Read the Excel file into a DataFrame
+file_path = '/Users/mdabdurrazzak/Downloads/Final_UK_Food_Product.xlsx'
+data = pd.read_excel(file_path, engine='openpyxl')
+
+# Select specific columns from the DataFrame
+selected_columns = [
+   'product_name', 'energy_100g', 'fat_100g', 'saturated-fat_100g', 'carbohydrates_100g',
+    'sugars_100g', 'fiber_100g', 'proteins_100g', 'salt_100g', 'sodium_100g', 'main_category','nutrition-score-uk_100g', 'brands'
+    # Add other relevant columns here
+]
+
+# Filter rows where 'countries_en' contains 'United Kingdom' and selected columns are not null
+selected_data = data[data['countries_en'].str.contains('United Kingdom', na=False)][selected_columns]
