@@ -39,8 +39,36 @@ Handling Missing Values: Missing values in selected nutritional columns were imp
 Feature Engineering: The 'nutri_score' was calculated based on a weighted combination of nutritional attributes, representing the overall nutritional quality of each product.
 
 Machine Learning Model:
-Algorithm:
-The project employed the HistGradientBoostingRegressor algorithm from the scikit-learn library for model-based imputation of missing values. This algorithm is robust, handles large datasets efficiently, and provides accurate predictions.
+Algorithm: HistGradientBoostingRegressor
+Algorithm Overview:
+HistGradientBoostingRegressor is an implementation of gradient boosting machines using histogram-based learning. It's specifically designed for large datasets, making it efficient for both memory usage and computation time. This algorithm builds decision trees sequentially, with each tree correcting the errors made by the previous ones, ultimately improving the model's accuracy.
+
+Key Features of HistGradientBoostingRegressor:
+
+Histogram-Based Learning: Utilizes histograms to bucketize the input features, reducing the memory usage and speeding up the training process, especially for large datasets.
+Gradient Boosting: Builds an ensemble of decision trees, where each subsequent tree focuses on correcting the errors made by the combined predictions of the previous trees.
+Handling Missing Values: Supports missing values in the input data, making it suitable for imputing missing values in datasets.
+Regularization: Incorporates L2 regularization, preventing overfitting by penalizing large coefficients in the decision trees.
+Early Stopping: Allows early stopping based on a validation dataset to prevent overfitting and find the optimal number of boosting rounds.
+Hyperparameter Tuning:
+In a real-world application, fine-tuning the hyperparameters of the HistGradientBoostingRegressor can significantly impact the model's performance. Here are some key hyperparameters that could be tuned:
+
+learning_rate (or eta): Controls the contribution of each tree to the final prediction. Lower values require adding more trees to maintain model performance. Typical values range from 0.01 to 0.3.
+
+max_iter (or n_iter_no_change): Maximum number of boosting iterations (trees) to be run. Setting an appropriate value is crucial to avoid overfitting. It can be determined through cross-validation.
+
+max_depth: Maximum depth of the individual decision trees. Deeper trees can capture more complex patterns but might lead to overfitting. It's essential to find a balance based on the dataset complexity.
+
+min_samples_leaf: Minimum number of samples required to be at a leaf node. Increasing this value can prevent the model from being too specific to the training data.
+
+l2_regularization: Strength of L2 regularization on leaf weights. Higher values penalize large coefficients, preventing overfitting. Common values are in the range of 0.0 to 1.0.
+
+max_bins: Maximum number of bins to bucketize the input features. Increasing this value can improve model accuracy but also requires more memory. It's essential to monitor memory usage, especially for large datasets.
+
+early_stopping: Enable early stopping based on a validation dataset to prevent overfitting. It stops training when the validation score doesn't improve for consecutive iterations (n_iter_no_change).
+
+In practice, techniques like Grid Search or Randomized Search can be employed to explore combinations of these hyperparameters and find the optimal configuration for the given dataset. Cross-validation is crucial to validate the model's performance across different subsets of the data during hyperparameter tuning.
+
 
 Hyperparameter Tuning:
 The model's hyperparameters were set to default values for simplicity in this project. However, for a real-world application, hyperparameters could be fine-tuned using techniques like grid search or randomized search to optimize the model's performance.
