@@ -1,17 +1,262 @@
 import pandas as pd
+import numpy as np
 from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import mean_squared_error
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.impute import SimpleImputer
+
 # Read the Excel file into a DataFrame
 file_path = '/Users/mdabdurrazzak/Downloads/Final_UK_Food_Product.xlsx'
 data = pd.read_excel(file_path, engine='openpyxl')
 
 # Select specific columns from the DataFrame
 selected_columns = [
-   'product_name', 'energy_100g', 'fat_100g', 'saturated-fat_100g', 'carbohydrates_100g',
-    'sugars_100g', 'fiber_100g', 'proteins_100g', 'salt_100g', 'sodium_100g', 'main_category','nutrition-score-uk_100g', 'brands'
-    # Add other relevant columns here
+    'product_name', 'energy_100g', 'fat_100g', 'saturated-fat_100g', 'carbohydrates_100g',
+    'sugars_100g', 'fiber_100g', 'proteins_100g', 'salt_100g', 'sodium_100g', 'main_category', 'nutrition-score-uk_100g', 'brands'
 ]
 
 # Filter rows where 'countries_en' contains 'United Kingdom' and selected columns are not null
 selected_data = data[data['countries_en'].str.contains('United Kingdom', na=False)][selected_columns]
+
+
+
+# Display basic statistics for the selected data
+print(selected_data.describe())
+
+# Pairwise scatter plot for selected nutritional features with a smaller figure size
+plt.figure(figsize=(8, 6))
+sns.pairplot(selected_data[['energy_100g', 'fat_100g', 'carbohydrates_100g', 'proteins_100g']])
+plt.suptitle('Pairwise Scatter Plot of Nutritional Features', y=1.02)
+plt.show()
+
+# Apply label encoding to non-numeric columns
+label_encoders = {}
+for column in selected_data.columns:
+    if selected_data[column].dtype == 'object':
+        label_encoders[column] = LabelEncoder()
+        selected_data[column] = label_encoders[column].fit_transform(selected_data[column])
+# Define a function to generate synthetic prices
+def generate_synthetic_prices(num_products):
+    # Assuming a normal distribution of prices with a mean and standard deviation
+    mean_price = 3.0  # Adjust based on your assumptions
+    std_dev_price = 1.0  # Adjust based on your assumptions
+
+    # Generate synthetic prices
+    synthetic_prices = np.random.normal(mean_price, std_dev_price, num_products)
+    
+    # Ensure prices are non-negative
+    synthetic_prices = np.maximum(synthetic_prices, 0)
+    
+    return synthetic_prices
+
+# Add a new column 'price' to the DataFrame
+selected_data['price'] = generate_synthetic_prices(len(selected_data))
+
+# Display the DataFrame with the new 'price' column
+print(selected_data[['product_name', 'price']])
+# Function to generate realistic carbon footprint values
+def generate_realistic_carbon_footprint():
+    # Define an average carbon footprint (in kgCO2e per kg)
+    average_carbon_footprint = 2.0
+
+    # Generate carbon footprint values with some variation
+    return np.random.normal(average_carbon_footprint, 0.5)
+
+# Create a new column 'carbon_footprint' in the DataFrame
+selected_data['carbon_footprint'] = selected_data.apply(lambda row: generate_realistic_carbon_footprint(), axis=1)
+
+# Display the DataFrame with the new column
+print(selected_data[['product_name', 'carbon_footprint']])
+# Inverse transform the label encoded columns after imputation
+for column in selected_data.columns:
+    if column in label_encoders:
+        selected_data[column] = label_encoders[column].inverse_transform(selected_data[column])
+# Define categories for product categorization
+categories = {
+    'Category A': ['organic', 'healthy', 'natural'],
+    'Category B': ['snacks', 'chips', 'sweets'],
+    'Category C': ['beverages', 'drinks', 'juices'],
+    'Category D': ['dairy', 'cheese', 'milk'],
+    'Category E': ['meat', 'sausage', 'chicken']
+}
+
+# Function to categorize products based on 'main_category' attribute
+def categorize_product(row, categories):
+    for category, keywords in categories.items():
+        for keyword in keywords:
+            if keyword.lower() in str(row['main_category']).lower():
+                return category
+    return 'Other'
+
+# Apply categorization to the DataFrame and create a new column 'product_category'
+selected_data['product_category'] = selected_data.apply(lambda row: categorize_product(row, categories), axis=1)
+
+# One-hot encode categorical columns
+selected_data = pd.get_dummies(selected_data, columns=['main_category'])
+# Define a generic function to calculate the combined score for all products
+def calculate_combined_score(selected_data, nutrition_weight, cost_weight, carbon_footprint_weight, model):
+    # Features for the model
+    features = selected_data[['nutrition-score-uk_100g', 'price', 'carbon_footprint']]
+
+    # Target variable
+    target = selected_data['combined_score']
+
+    # Handle missing values in the target variable
+    imputer = SimpleImputer(strategy='mean')
+    target = imputer.fit_transform(target.values.reshape(-1, 1)).flatten()
+
+    # Train the specified model to predict user preferences
+    model.fit(features, target)
+
+    # Predict user preferences for all products
+    predicted_nutrition_scores = model.predict(features)
+
+    # Combine the predicted scores with price and carbon footprint
+    combined_scores = (
+        nutrition_weight * predicted_nutrition_scores +
+        cost_weight * selected_data['price'] +
+        carbon_footprint_weight * selected_data['carbon_footprint']
+    )
+
+    # Add the combined scores to the DataFrame
+    selected_data.loc[:, 'combined_score'] = combined_scores
+
+# User-defined weights for nutrition, cost, and carbon footprint
+nutrition_weight = 1.0
+cost_weight = -0.5
+carbon_footprint_weight = -0.2
+
+# User input (product name or part of the name)
+user_input = input("Enter a product name or category: ")
+
+# Filter products based on user input
+filtered_products = selected_data[
+    selected_data['product_name'].str.contains(user_input, case=False) |
+    selected_data['product_category'].str.contains(user_input, case=False)
+]
+plt.figure(figsize=(12, 6))
+sns.histplot(filtered_products['combined_score'], bins=20, kde=True, color='skyblue')
+plt.title('Distribution of Combined Scores')
+plt.xlabel('Combined Score')
+plt.ylabel('Frequency')
+plt.show()
+plt.figure(figsize=(10, 6))
+sns.scatterplot(x='price', y='combined_score', data=filtered_products, color='green')
+plt.title('Price vs. Combined Score')
+plt.xlabel('Product Price')
+plt.ylabel('Combined Score')
+plt.show()
+# Separate features and target
+X = filtered_products[['nutrition-score-uk_100g', 'price', 'carbon_footprint']]
+y = filtered_products['combined_score']
+
+# Handle missing values in features
+imputer_features = SimpleImputer(strategy='mean')
+X = imputer_features.fit_transform(X)
+
+# Split data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Create an instance of HistGradientBoostingRegressor
+hist_model = HistGradientBoostingRegressor(random_state=42)
+
+# Train the model
+hist_model.fit(X_train, y_train)
+
+# Predict on the test set
+y_pred = hist_model.predict(X_test)
+
+# Evaluate the model
+mse = mean_squared_error(y_test, y_pred)
+print(f'Mean Squared Error: {mse}')
+
+# Display the top 5 recommended products
+filtered_products_copy = filtered_products.copy()  # Create a copy to avoid SettingWithCopyWarning
+filtered_products_copy['predicted_score'] = hist_model.predict(X)
+top_products_hist = filtered_products_copy.nlargest(5, 'predicted_score')[['product_name', 'product_category', 'predicted_score']]
+print("Filtered and Top 5 Recommended Products using HistGradientBoostingRegressor:")
+print(top_products_hist[['product_name', 'product_category', 'predicted_score']])
+train_sizes, train_scores, test_scores = learning_curve(hist_model, X, y, cv=5)
+
+plt.figure(figsize=(10, 6))
+plt.plot(train_sizes, np.mean(train_scores, axis=1), label='Training Score')
+plt.plot(train_sizes, np.mean(test_scores, axis=1), label='Validation Score')
+plt.title('Learning Curve')
+plt.xlabel('Training Examples')
+plt.ylabel('Score')
+plt.legend()
+plt.show()
+# Separate features and target
+X = filtered_products[['nutrition-score-uk_100g', 'price', 'carbon_footprint']]
+y = filtered_products['combined_score']
+
+# Handle missing values in features
+imputer_features = SimpleImputer(strategy='mean')
+X = imputer_features.fit_transform(X)
+
+# Split data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Create an instance of RandomForestRegressor
+rf_model = RandomForestRegressor(random_state=42)
+
+# Train the model
+rf_model.fit(X_train, y_train)
+
+# Predict on the test set
+y_pred = rf_model.predict(X_test)
+
+# Evaluate the model
+mse = mean_squared_error(y_test, y_pred)
+print(f'Mean Squared Error: {mse}')
+
+# Display the top 5 recommended products
+filtered_products_copy = filtered_products.copy()  # Create a copy to avoid SettingWithCopyWarning
+filtered_products_copy['predicted_score'] = rf_model.predict(X)
+top_products_rf = filtered_products_copy.nlargest(5, 'predicted_score')[['product_name', 'product_category', 'predicted_score']]
+print("Filtered and Top 5 Recommended Products using RandomForestRegressor:")
+print(top_products_rf[['product_name', 'product_category', 'predicted_score']])
+train_sizes, train_scores, test_scores = learning_curve(rf_model, X, y, cv=5)
+
+plt.figure(figsize=(10, 6))
+plt.plot(train_sizes, np.mean(train_scores, axis=1), label='Training Score')
+plt.plot(train_sizes, np.mean(test_scores, axis=1), label='Validation Score')
+plt.title('Learning Curve')
+plt.xlabel('Training Examples')
+plt.ylabel('Score')
+plt.legend()
+plt.show()
+plt.figure(figsize=(10, 6))
+sns.scatterplot(x=y_pred, y=y_test - y_pred, color='skyblue')
+plt.title('Residual Plot')
+plt.xlabel('Predicted Values')
+plt.ylabel('Residuals')
+plt.show()
+# Handle missing values in features
+imputer_features = SimpleImputer(strategy='mean')
+features = imputer_features.fit_transform(features)
+# Split data into training and testing sets
+features_train, features_test, target_train, target_test = train_test_split(
+    features, target, test_size=0.2, random_state=42
+)
+
+# Train and evaluate HistGradientBoostingRegressor
+hist_model.fit(features_train, target_train)
+hist_predictions = hist_model.predict(features_test)
+hist_mse = mean_squared_error(target_test, hist_predictions)
+print(f'Mean Squared Error for HistGradientBoostingRegressor: {hist_mse}')
+
+# Train and evaluate RandomForestRegressor
+rf_model.fit(features_train, target_train)
+rf_predictions = rf_model.predict(features_test)
+rf_mse = mean_squared_error(target_test, rf_predictions)
+print(f'Mean Squared Error for RandomForestRegressor: {rf_mse}')
+hist_rmse = np.sqrt(hist_mse)
+print(f'Root Mean Squared Error for HistGradientBoostingRegressor: {hist_rmse}')
+
+# Compute RMSE for RandomForestRegressor
+rf_rmse = np.sqrt(rf_mse)
+print(f'Root Mean Squared Error for RandomForestRegressor: {rf_rmse}')
